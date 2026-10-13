@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Acanlar Mobilya Dekorasyon Çizim Programı V1.3</title>
+<title>Acanlar Mobilya Dekorasyon Çizim Programı V1.9</title>
 <style>
 :root{--navy:#202b3b;--red:#ad1018;--gold:#d6a45f;--bg:#f2f4f6;--line:#dce2e7;--muted:#667481;--ink:#202a34;--panel:#fff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",Arial,sans-serif}
@@ -39,6 +39,13 @@ main{max-width:1800px;margin:auto;padding:16px;display:grid;grid-template-column
 .band-choice input{accent-color:#208c5b;width:14px;height:14px;margin:0}
 .band-help{padding:10px 14px;color:#657481;font-size:11px;background:#f5f8fb;border-top:1px solid #e6ebef}
 @media(max-width:1050px){.group{margin-bottom:0}.controlsgrid{gap:10px}}
+/* V1.9: Sol ayarları kaydırırken sağdaki çalışma alanı sabit kalsın. */
+@media(min-width:1051px){
+ main{align-items:start}
+ .workspace{position:sticky;top:12px;height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:5px}
+ .workspace>.panel{flex-shrink:0}
+ .workspace .drawing-area{height:min(59vh,630px);min-height:350px}
+}
 </style>
 </head>
 <body>
@@ -114,13 +121,13 @@ main{max-width:1800px;margin:auto;padding:16px;display:grid;grid-template-column
 <section class="workspace">
  <div class="panel">
   <div class="panelhead"><h2>📐 Teknik dolap çizimi</h2><div class="zoom-tools"><button id="zoomOut" title="Uzaklaştır">−</button><span id="zoomLabel">100%</span><button id="zoomIn" title="Yakınlaştır">＋</button><button id="zoomReset" title="Sıfırla">Sığdır</button></div></div>
-  <div class="single-view"><div class="drawing-area" id="drawingArea"><svg id="frontSvg" viewBox="-125 -90 700 610" aria-label="Ölçülü teknik ön görünüş"></svg></div><div class="drawing-note">Mavi: net genişlik ve dikme konumu · Turuncu: net raf aralıkları · Fare tekerleğiyle yakınlaştır · Dikmeleri sürükle</div></div>
+  <div class="single-view"><div class="drawing-area" id="drawingArea"><svg id="frontSvg" viewBox="-125 -90 700 610" aria-label="Ölçülü teknik ön görünüş"></svg></div><div class="drawing-note">Mavi: net genişlik ve dikme konumu · Turuncu: net raf aralıkları · Sağ panel kendi içinde kaydırılabilir · Fare tekerleğiyle yakınlaştır · Dikmeleri sürükle</div></div>
  </div>
  <div class="panel">
   <div class="panelhead"><h2>Otomatik kesim listesi</h2><span class="pill" id="partCount">0 parça türü</span></div>
   <div class="metricrow"><div class="metric"><span>Toplam parça adedi</span><strong id="totalQty">0</strong></div><div class="metric"><span>Parça çeşidi</span><strong id="typeCount">0</strong></div><div class="metric"><span>Toplam levha yüzeyi</span><strong id="totalArea">0,00 m²</strong></div></div>
   <div class="tablewrap"><table><thead><tr><th>Parça</th><th class="num">Uzunluk (cm)</th><th class="num">Genişlik (cm)</th><th class="num">Adet</th><th>Bantlama · 4 kenar</th></tr></thead><tbody id="partsBody"></tbody></table></div>
-  <div class="band-help"><strong>Bant seçimleri:</strong> U1 / U2 = uzun kenarlar, K1 / K2 = kısa kenarlar. İşaretler optimizasyon dosyasına aktarılır.</div><div class="footnote">V1.8 hesap varsayımları: Yanlar gövde yüksekliğinde; üst/alt tablalar seçilen yerleşime göre; dikmeler üst ve alt tabla arasında; raflar net bölme açıklığında. Kapak ölçüsü şimdilik eşit bölünmüş basit hesaplamadır. Arkalık, menteşe delikleri, kenar bantları, baza bağlantı detayları ve özel birleştirmeler dahil değildir. Kesimden önce ölçüleri kontrol et.</div>
+  <div class="band-help"><strong>Bant seçimleri:</strong> U1 / U2 = uzun kenarlar, K1 / K2 = kısa kenarlar. Yan paneller, dikmeler ve raflar U1; kapaklar dört kenar bantlı gelir. Üst ve alt tabla seçimlerine göre kısa kenarlar otomatik işaretlenir. Dilediğin kutuyu değiştirebilirsin; işaretler optimizasyona aktarılır.</div><div class="footnote">V1.9 hesap varsayımları: Yanlar gövde yüksekliğinde; üst/alt tablalar seçilen yerleşime göre; dikmeler üst ve alt tabla arasında; raflar net bölme açıklığında. Kapak ölçüsü şimdilik eşit bölünmüş basit hesaplamadır. Arkalık, menteşe delikleri, kenar bantları, baza bağlantı detayları ve özel birleştirmeler dahil değildir. Kesimden önce ölçüleri kontrol et.</div>
  </div>
 </section>
 </main>
@@ -218,6 +225,17 @@ svg.querySelectorAll('[data-shelf]').forEach(el=>el.addEventListener('click',e=>
 let zoom=1;
 function applyZoom(){const svg=$('frontSvg');svg.style.transform=`scale(${zoom})`;$('zoomLabel').textContent=Math.round(zoom*100)+'%'}
 function render(){normalize();updateBays();$('baseDims').style.display=val('baseType')==='none'?'none':'block';$('plinthDepthWrap').style.display=val('baseType')==='plinth'?'flex':'none';renderFront();renderParts();applyZoom()}
+// Yeni parçalar için varsayılan bantlar. Kullanıcının seçtiği değerler daima önceliklidir.
+function defaultBandFlags(r){
+ const n=r.name;
+ const flags={b1:true,b2:false,e1:false,e2:false};
+ if(n.startsWith('Kapak '))return {b1:true,b2:true,e1:true,e2:true};
+ if(n==='Üst tabla' && dims().topMode==='over'){flags.e1=true;flags.e2=true;}
+ if(n==='Alt tabla' && dims().bottomMode==='under'){flags.e1=true;flags.e2=true;}
+ if(n==='Baza ön paneli')return {b1:false,b2:false,e1:false,e2:false};
+ return flags;
+}
+function bandFlags(r){return {...defaultBandFlags(r),...(state.banding[r.name]||{})};}
 function renderParts(){
  let rows=parts(),body=$('partsBody');body.replaceChildren();let qty=0,area=0;
  rows.forEach(r=>{
@@ -227,7 +245,7 @@ function renderParts(){
    const td=document.createElement('td');td.textContent=value;tr.appendChild(td);
   }
   const td=document.createElement('td');td.className='band-cell';const grid=document.createElement('div');grid.className='band-grid';
-  const flags=state.banding[r.name]||{};
+  const flags=bandFlags(r);
   for(const [key,label] of [['b1','U1'],['b2','U2'],['e1','K1'],['e2','K2']]){
    const lab=document.createElement('label');lab.className='band-choice';
    const check=document.createElement('input');check.type='checkbox';check.checked=!!flags[key];check.title=r.name+' · '+label;
@@ -252,7 +270,7 @@ $('addShelf').onclick=()=>{let d=dims(),b=bays()[Number($('baySelect').value||0)
 $('clearShelves').onclick=()=>{state.shelves=[];render()};
 ['width','height','depth','topMode','bottomMode','doorCount','doorGap','baseType','baseHeight','plinthDepth'].forEach(id=>$(id).addEventListener('input',render));
 $('exportCsv').onclick=()=>{let rows=parts(),lines=[['Parça','Uzunluk (cm)','Genişlik (cm)','Adet'],...rows.map(r=>[r.name,(r.length/10).toFixed(2).replace('.',','),(r.width/10).toFixed(2).replace('.',','),r.qty])].map(r=>r.map(cell).join(';')).join('\r\n');download('acanlar-kesim-listesi.csv','\ufeff'+lines,'text/csv;charset=utf-8')};
-$('exportJson').onclick=()=>download('acanlar-dolap-projesi.json',JSON.stringify({app:'Acanlar Dolap Çizim Sistemi',version:'1.6',dimensions:{...dims(),W:dims().W/10,H:dims().H/10,D:dims().D/10,T:dims().T/10,baseH:dims().baseH/10,baseInset:dims().baseInset/10,plinthDepth:dims().plinthDepth/10},banding:state.banding,dividers:state.dividers.map(x=>x/10),shelves:state.shelves.map(x=>({...x,y:x.y/10})),doors:{count:val('doorCount'),gap:val('doorGap'),show:false},rotation:{x:state.rotX,y:state.rotY}},null,2),'application/json');
+$('exportJson').onclick=()=>download('acanlar-dolap-projesi.json',JSON.stringify({app:'Acanlar Dolap Çizim Sistemi',version:'1.9',dimensions:{...dims(),W:dims().W/10,H:dims().H/10,D:dims().D/10,T:dims().T/10,baseH:dims().baseH/10,baseInset:dims().baseInset/10,plinthDepth:dims().plinthDepth/10},banding:state.banding,dividers:state.dividers.map(x=>x/10),shelves:state.shelves.map(x=>({...x,y:x.y/10})),doors:{count:val('doorCount'),gap:val('doorGap'),show:false},rotation:{x:state.rotX,y:state.rotY}},null,2),'application/json');
 $('importJson').onclick=()=>$('jsonFile').click();
 $('jsonFile').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let j=JSON.parse(await f.text());let d=j.dimensions;if(!d||!Array.isArray(j.dividers)||!Array.isArray(j.shelves))throw 0;for(let [id,k] of [['width','W'],['height','H'],['depth','D']])$(id).value=d[k];for(let k of ['topMode','bottomMode'])if(d[k])$(k).value=d[k];state.banding=j.banding||{};state.dividers=j.dividers.map(x=>x*10);state.shelves=j.shelves.map(x=>({...x,y:x.y*10}));if(j.doors){$('doorCount').value=j.doors.count;$('doorGap').value=j.doors.gap}for(let k of ['baseType','baseH','plinthDepth'])if(d[k]!==undefined)$(k==='baseH'?'baseHeight':k).value=d[k];if(j.rotation){state.rotX=j.rotation.x;state.rotY=j.rotation.y}render()}catch(err){alert('Bu dosya geçerli Acanlar proje kaydı değil.')}e.target.value=''};
 const front=$('frontSvg');front.addEventListener('pointermove',e=>{if(state.drag<0)return;let d=dims(),r=front.getBoundingClientRect(),vx=(e.clientX-r.left)/r.width*700-125,scale=Math.min(304/d.W,330/d.H),rw=d.W*scale,x0=(420-rw)/2,x=(vx-x0)/scale-d.T,max=innerW(d)-d.T; x=Math.max(0,Math.min(max,x));let old=state.drag;state.dividers[old]=x;state.dividers.sort((a,b)=>a-b);state.drag=state.dividers.findIndex(v=>v===x);render()});
@@ -269,7 +287,7 @@ for(const mode of ['topMode','bottomMode']){
 }
 const originalRender=render;render=function(){for(const mode of ['topMode','bottomMode']){const name=mode==='topMode'?'topChoice':'bottomChoice';const radio=document.querySelector(`input[name="${name}"][value="${$(mode).value}"]`);if(radio)radio.checked=true;}return originalRender()};
 
-$('sendOptimizer').onclick=()=>{if(!valid())return alert('Önce dolap ölçülerini kontrol edin.');let items=parts().map((r,i)=>({id:Date.now()+i,name:r.name,h:r.length/10,w:r.width/10,q:r.qty,rot:true,...{b1:false,b2:false,e1:false,e2:false},...(state.banding[r.name]||{})}));let payload={projName:'Acanlar Dolap Çizimi',parts:items};download('acanlar-optimizasyona-aktar.json',JSON.stringify(payload,null,2),'application/json');alert('Optimizasyon uyumlu JSON indirildi. Optimizasyon programını açıp “Dosyadan Yükle” ile bu dosyayı seçin.');};
+$('sendOptimizer').onclick=()=>{if(!valid())return alert('Önce dolap ölçülerini kontrol edin.');let items=parts().map((r,i)=>({id:Date.now()+i,name:r.name,h:r.length/10,w:r.width/10,q:r.qty,rot:true,...bandFlags(r)}));let payload={projName:'Acanlar Dolap Çizimi',parts:items};download('acanlar-optimizasyona-aktar.json',JSON.stringify(payload,null,2),'application/json');alert('Optimizasyon uyumlu JSON indirildi. Optimizasyon programını açıp “Dosyadan Yükle” ile bu dosyayı seçin.');};
 
 render();
 })();
